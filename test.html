@@ -498,6 +498,12 @@ render();
   <input type="text" id="vacation-reason" placeholder="사유 (예:연차,병가,경조사,개인사정 등)" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
   <button onclick="requestVacation()" style="width:100%; padding:12px; background: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; font-size:16px;">신청하기</button>
 </div>
+<!-- 시작 날짜와 종료 날짜를 나란히 둠 -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+  <input type="date" id="vacation-start" style="width:45%; padding:10px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+  <span style="font-weight:bold;">~</span>
+  <input type="date" id="vacation-end" style="width:45%; padding:10px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+</div>
 
   <!-- 로그아웃 버튼 (따라다니지 않고 문서 맨 아래 바닥에 정지) -->
 <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
@@ -563,39 +569,46 @@ render();
       document.getElementById('login-door').style.display = 'flex';
     }
   });
-    // 휴가 신청서를 파이어베이스 창고로 보내는 비술
+      // 휴가 신청서를 파이어베이스 창고로 보내는 비술 (여러 날짜 지원)
   function requestVacation() {
-    var vDate = document.getElementById('vacation-date').value;
+    var vStart = document.getElementById('vacation-start').value;
+    var vEnd = document.getElementById('vacation-end').value;
     var vReason = document.getElementById('vacation-reason').value;
-    var user = firebase.auth().currentUser; // 현재 로그인한 사람 확인
+    var user = firebase.auth().currentUser;
 
     if (!user) {
-      alert("로그인이 필요하옵니다.");
+      alert("로그인 필요.");
       return;
     }
-    if (!vDate || !vReason) {
-      alert("날짜,사유 정확히 입력 해주세요.");
+    if (!vStart || !vEnd || !vReason) {
+      alert("시작 날짜와 종료 날짜, 사유를 모두 입력 해주세요.");
+      return;
+    }
+    if (vStart > vEnd) {
+      alert("종료 날짜가 시작 날짜보다 빠를 수 없습니다. 다시 확인해 주세요.");
       return;
     }
 
-    // 아이디(사번) 추출 (예: '1@kd.com' 에서 '1'만 떼어냄)
     var empId = user.email.split('@')[0];
+    
+    // 하루만 쉴 경우 날짜 하나만, 여러 날일 경우 '~'로 이어줍니다.
+    var dateString = (vStart === vEnd) ? vStart : (vStart + " ~ " + vEnd);
 
-    // 파이어베이스 창고(Realtime Database)의 'vacations' 구역에 문서 저장
     firebase.database().ref('vacations/' + empId).push({
-      date: vDate,
+      date: dateString, 
       reason: vReason,
-      status: "대기중", // 팀장님이 나중에 '승인'이나 '반려'로 바꿀 수 있사옵니다.
+      status: "대기중",
       timestamp: firebase.database.ServerValue.TIMESTAMP
     }).then(() => {
       alert("신청 완료");
-      // 보낸 뒤에는 입력칸을 다시 깨끗하게 비워줍니다.
-      document.getElementById('vacation-date').value = '';
+      document.getElementById('vacation-start').value = '';
+      document.getElementById('vacation-end').value = '';
       document.getElementById('vacation-reason').value = '';
     }).catch((error) => {
-      alert("다시 확인해주세요.: " + error.message);
+      alert("신청 실패: " + error.message);
     });
   }
+
 
 </script>
 
