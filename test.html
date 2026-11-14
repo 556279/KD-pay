@@ -491,36 +491,51 @@ render();
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-<!-- 휴가 신청서 영역 -->
-<div style="margin: 20px; padding: 15px; background: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: #333;">
-  <h3 style="margin-top:0; margin-bottom: 15px;"> 휴무 신청</h3>
-  <input type="date" id="vacation-date" style="width:100%; padding:10px; margin-bottom:10px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
-  <input type="text" id="vacation-reason" placeholder="사유 (예:연차,병가,경조사,개인사정 등)" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
-  <button onclick="requestVacation()" style="width:100%; padding:12px; background: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; font-size:16px;">신청하기</button>
-</div>
-<!-- 시작 날짜와 종료 날짜를 나란히 둠 -->
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-  <input type="date" id="vacation-start" style="width:45%; padding:10px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
-  <span style="font-weight:bold;">~</span>
-  <input type="date" id="vacation-end" style="width:45%; padding:10px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+<!-- ==================== [여기서부터 복사하시옵소서] ==================== -->
+
+<!-- 1. 휴무 신청 영역 (날짜와 사유 선택) -->
+<div style="margin: 20px; padding: 15px; background: var(--card); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+  <h3 style="margin-top:0; margin-bottom: 15px;">휴무 신청</h3>
+  
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <input type="date" id="vacation-start" style="width:45%; padding:10px; border-radius:5px; border:1px solid #555; font-size:16px; background: transparent; color: inherit;">
+    <span style="font-weight:bold;">~</span>
+    <input type="date" id="vacation-end" style="width:45%; padding:10px; border-radius:5px; border:1px solid #555; font-size:16px; background: transparent; color: inherit;">
+  </div>
+  
+  <select id="vacation-reason" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #555; font-size:16px; background: transparent; color: inherit;">
+    <option value="" disabled selected hidden>사유 선택</option>
+    <option value="연차" style="color: black;">연차</option>
+    <option value="병가" style="color: black;">병가</option>
+    <option value="경조사" style="color: black;">경조사</option>
+    <option value="개인사정" style="color: black;">개인사정</option>
+  </select>
+  
+  <button onclick="requestVacation()" style="width:100%; padding:12px; background: #008000; color: white; border: none; border-radius: 5px; font-weight: bold; font-size:16px;">신청하기</button>
 </div>
 
-  <!-- 로그아웃 버튼 (따라다니지 않고 문서 맨 아래 바닥에 정지) -->
+<!-- 2. 로그아웃 버튼 (문서 맨 아래 바닥에 정지) -->
 <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
   <button onclick="logout()" style="padding:12px 24px; background:#dc3545; color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">로그아웃</button>
 </div>
 
-<!-- 숫자만 치는 로그인 관문 화면 -->
+<!-- 3. 파이어베이스 창고 연결 고리 -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<!-- 4. 숫자만 치는 로그인 관문 화면 -->
 <div id="login-door" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px;">
   <h2 style="margin-bottom: 20px;">인증</h2>
   <input type="number" id="user-id" placeholder="사번 (숫자만 입력)" style="width:100%; max-width:300px; margin-bottom:10px; padding:12px; font-size:16px; border-radius:8px; border:1px solid gray;">
   <input type="password" id="user-pw" placeholder="비밀번호 (6자리 이상)" style="width:100%; max-width:300px; margin-bottom:20px; padding:12px; font-size:16px; border-radius:8px; border:1px solid gray;">
-  <button onclick="login()" style="width:100%; max-width:300px; padding:14px; font-size:16px; background:var(--cam); color:white; border:none; border-radius:8px; font-weight:bold;">입장하기</button>
+  <button onclick="login()" style="width:100%; max-width:300px; padding:14px; font-size:16px; background:var(--cam); color:white; border:none; border-radius:8px; font-weight:bold;">로그인</button>
   <p id="login-msg" style="color:var(--neg); margin-top:15px; font-size:14px;"></p>
 </div>
 
+<!-- 5. 모든 동작 비술 (자바스크립트) -->
 <script>
-  // 1. 파이어베이스 열쇠 설정
+  // 파이어베이스 열쇠 설정 (전하의 열쇠)
   var firebaseConfig = {
     apiKey: "AIzaSyC4m-5xqbR_XTWi7edHE4NjunXbLMs_YsE",
     authDomain: "kd-pay-a995e.firebaseapp.com",
@@ -530,38 +545,36 @@ render();
     appId: "1:456435073354:web:3b5f9eb786919322a241b3"
   };
   
-  // 창고 문 열기
   if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
   }
 
-  // 2. 로그인 기능 (숫자를 이메일로 몰래 변환)
+  // 로그인 기능
   function login() {
     var id = document.getElementById('user-id').value;
-    var email = id + "@kd.com"; // 친 숫자 뒤에 몰래 주소를 붙여줍니다.
+    var email = id + "@kd.com"; 
     var pw = document.getElementById('user-pw').value;
     
     firebase.auth().signInWithEmailAndPassword(email, pw)
       .then((userCredential) => {
-        // 입장 성공 시 관문 숨기기
         document.getElementById('login-door').style.display = 'none';
       })
       .catch((error) => {
         document.getElementById('login-msg').innerText = "사번이나 비밀번호가 틀렸습니다.";
       });
   }
+
   // 로그아웃 기능
   function logout() {
     firebase.auth().signOut().then(() => {
-      // 퇴궐 시 이전에 쳤던 아이디와 비밀번호 기록 지우기
       document.getElementById('user-id').value = '';
       document.getElementById('user-pw').value = '';
       document.getElementById('login-msg').innerText = '';
-      alert("로그아웃 완료.");
+      alert("로그아웃 완료");
     });
   }
 
-  // 3. 자동 로그인 (새로고침 해도 유지)
+  // 자동 로그인 유지
   firebase.auth().onAuthStateChanged((user) => {
     if (user) {
       document.getElementById('login-door').style.display = 'none';
@@ -569,7 +582,8 @@ render();
       document.getElementById('login-door').style.display = 'flex';
     }
   });
-      // 휴가 신청서를 파이어베이스 창고로 보내는 비술 (여러 날짜 지원)
+
+  // 휴무 신청 기능
   function requestVacation() {
     var vStart = document.getElementById('vacation-start').value;
     var vEnd = document.getElementById('vacation-end').value;
@@ -577,11 +591,11 @@ render();
     var user = firebase.auth().currentUser;
 
     if (!user) {
-      alert("로그인 필요.");
+      alert("로그인 필요");
       return;
     }
     if (!vStart || !vEnd || !vReason) {
-      alert("시작 날짜와 종료 날짜, 사유를 모두 입력 해주세요.");
+      alert("시작 날짜와 종료 날짜, 사유를 모두 빠짐없이 선택 해주세요.");
       return;
     }
     if (vStart > vEnd) {
@@ -590,8 +604,6 @@ render();
     }
 
     var empId = user.email.split('@')[0];
-    
-    // 하루만 쉴 경우 날짜 하나만, 여러 날일 경우 '~'로 이어줍니다.
     var dateString = (vStart === vEnd) ? vStart : (vStart + " ~ " + vEnd);
 
     firebase.database().ref('vacations/' + empId).push({
@@ -608,8 +620,10 @@ render();
       alert("신청 실패: " + error.message);
     });
   }
+</script>
+<!-- ==================== [여기까지 복사하시옵소서] ==================== -->
 
-
+      
 </script>
 
 </body>
