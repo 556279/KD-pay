@@ -491,7 +491,15 @@ render();
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-<!-- 로그아웃 버튼 (따라다니지 않고 문서 맨 아래 바닥에 정지) -->
+<!-- 휴가 신청서 영역 -->
+<div style="margin: 20px; padding: 15px; background: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: #333;">
+  <h3 style="margin-top:0; margin-bottom: 15px;"> 휴무 신청</h3>
+  <input type="date" id="vacation-date" style="width:100%; padding:10px; margin-bottom:10px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+  <input type="text" id="vacation-reason" placeholder="사유 (예:연차,병가,경조사,개인사정 등)" style="width:100%; padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid #ccc; font-size:16px;">
+  <button onclick="requestVacation()" style="width:100%; padding:12px; background: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; font-size:16px;">신청하기</button>
+</div>
+
+  <!-- 로그아웃 버튼 (따라다니지 않고 문서 맨 아래 바닥에 정지) -->
 <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
   <button onclick="logout()" style="padding:12px 24px; background:#dc3545; color:white; border:none; border-radius:8px; font-size:16px; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">로그아웃</button>
 </div>
@@ -555,6 +563,40 @@ render();
       document.getElementById('login-door').style.display = 'flex';
     }
   });
+    // 휴가 신청서를 파이어베이스 창고로 보내는 비술
+  function requestVacation() {
+    var vDate = document.getElementById('vacation-date').value;
+    var vReason = document.getElementById('vacation-reason').value;
+    var user = firebase.auth().currentUser; // 현재 로그인한 사람 확인
+
+    if (!user) {
+      alert("로그인이 필요하옵니다.");
+      return;
+    }
+    if (!vDate || !vReason) {
+      alert("날짜,사유 정확히 입력 해주세요.");
+      return;
+    }
+
+    // 아이디(사번) 추출 (예: '1@kd.com' 에서 '1'만 떼어냄)
+    var empId = user.email.split('@')[0];
+
+    // 파이어베이스 창고(Realtime Database)의 'vacations' 구역에 문서 저장
+    firebase.database().ref('vacations/' + empId).push({
+      date: vDate,
+      reason: vReason,
+      status: "대기중", // 팀장님이 나중에 '승인'이나 '반려'로 바꿀 수 있사옵니다.
+      timestamp: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+      alert("신청 완료");
+      // 보낸 뒤에는 입력칸을 다시 깨끗하게 비워줍니다.
+      document.getElementById('vacation-date').value = '';
+      document.getElementById('vacation-reason').value = '';
+    }).catch((error) => {
+      alert("다시 확인해주세요.: " + error.message);
+    });
+  }
+
 </script>
 
 </body>
