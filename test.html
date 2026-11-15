@@ -1132,24 +1132,46 @@ render();
   // ── 급여 계산기 전역 설정 (settings/payroll) ──
   var DEF_PAY = JSON.parse(JSON.stringify(PAY)), DEF_RT = JSON.parse(JSON.stringify(RT)), lastSig = "";
   var pos = function(x, d){ return Number(x) > 0 ? Number(x) : d; };
-  function applySettings(v){
+    function applySettings(v){
     if (!v) return;
     var np = {};
-    Object.keys(v.pay || {}).forEach(function(k){
-      var n = k.replace(/^s/, ""), x = Number(v.pay[k]);
-      if (/^\d+$/.test(n) && x > 0) np[n] = x;
-    });
-    PAY = Object.assign({}, DEF_PAY, np);
-    RAISES = Object.keys(v.raises || {}).filter(function(k){ return /^\d{4}-\d{2}$/.test(k) && isFinite(Number(v.raises[k])); })
-      .sort().map(function(k){ return [k, Number(v.raises[k])]; });
+    if (v.pay) {
+      Object.keys(v.pay).forEach(function(k){
+        var n = String(k).replace(/^s/, "");
+        var x = Number(v.pay[k]);
+        if (!isNaN(x) && x > 0) np[n] = x;
+      });
+    }
+    
+    // 혹여나 기본 시급 데이터가 날아갔을 화근을 대비한 철통 비술
+    var basePay = (typeof DEF_PAY !== "undefined" && DEF_PAY) ? DEF_PAY : {1:16911, 2:17056, 3:17201, 4:17345, 5:17491, 6:17636, 7:17767, 8:17901, 9:18034, 10:18167, 11:18300, 12:18432, 13:18565};
+    PAY = Object.assign({}, basePay, np);
+
+    RAISES = [];
+    if (v.raises) {
+      Object.keys(v.raises).forEach(function(k){
+        if (/^\d{4}-\d{2}$/.test(k) && isFinite(Number(v.raises[k]))) {
+          RAISES.push([k, Number(v.raises[k])]);
+        }
+      });
+      RAISES.sort();
+    }
+    
     var r = v.rates || {};
-    RT = { np: pos(r.np, DEF_RT.np), hi: pos(r.hi, DEF_RT.hi), lt: pos(r.lt, DEF_RT.lt), npcap: pos(r.npcap, DEF_RT.npcap) };
-    var sig = JSON.stringify([PAY, RAISES, RT]);
-    if (sig === lastSig) return;
-    lastSig = sig;
-    try { render(); } catch (e) {}
-    if (isAdmin && !g("ap-set").contains(document.activeElement)) renderSettings();
+    var safePos = function(x, d){ return (Number(x) > 0) ? Number(x) : d; };
+    var baseRT = (typeof DEF_RT !== "undefined" && DEF_RT) ? DEF_RT : { np: 4.75, hi: 3.595, lt: 13.14, npcap: 6590000 };
+    RT = { np: safePos(r.np, baseRT.np), hi: safePos(r.hi, baseRT.hi), lt: safePos(r.lt, baseRT.lt), npcap: safePos(r.npcap, baseRT.npcap) };
+    
+    // 화면을 즉시 강제로 새로고침하옵니다
+    try { render(); } catch (e) { console.error(e); }
+    
+    if (isAdmin) {
+      var ae = document.activeElement;
+      var isTyping = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
+      if (!isTyping) renderSettings();
+    }
   }
+
   function renderSettings(){
     var h = '<h3>호봉별 시급 (원)</h3><div class="set-grid">';
     for (var n = 1; n <= 13; n++) h += '<label>' + n + '호봉<input type="number" inputmode="numeric" id="set-pay-' + n + '" value="' + (PAY[n] || "") + '"></label>';
