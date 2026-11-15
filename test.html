@@ -220,6 +220,7 @@ var S = {sched:{}, ex:{}, cfg:{}}, old = false;
 var raw = null; try { raw = localStorage.getItem(KEY); } catch (e) {}
 try { var r = JSON.parse(raw); if (r) { S = r; old = !!(r.cfg && r.cfg.rate !== undefined && r.cfg.setup === undefined); } } catch (e) {}
 S.sched = S.sched || {}; S.ex = S.ex || {}; S.cfg = S.cfg || {};
+for (var xk in S.ex) { if (S.ex[xk] && S.ex[xk].rate !== undefined) delete S.ex[xk].rate; }
 if (old) { if (!("union" in S.cfg)) S.cfg.union = 2; S.cfg.setup = true; }
 if (S.cfg.xmv === undefined && S.cfg.xm !== undefined) S.cfg.xm = "reg";
 if (S.cfg.unv === undefined && String(S.cfg.union) === "0") S.cfg.union = "";
@@ -232,7 +233,7 @@ var RAISES = [["2026-10", 3]];
 var RT = {np:4.75, hi:3.595, lt:13.14, npcap:6590000};
 function tabRate(step, ym){ var v = PAY[step]; if (!v) return 0; RAISES.forEach(function(r){ if (ym >= r[0]) v = Math.round(v * (1 + r[1] / 100)); }); return v; }
 function stepFor(ym, skipSelf){ var e = S.ex[ym], own = (!skipSelf && e && String(e.mstep || "") !== "") ? String(e.mstep) : ""; if (own) return own; var pe = "", pk = "", nx = "", nk = "~"; for (var k in S.ex) { var v = S.ex[k] && String(S.ex[k].mstep || ""); if (!v) continue; if (k < ym && k > pk) { pk = k; pe = v; } if (k > ym && k < nk) { nk = k; nx = v; } } return pe || String(S.cfg.step || "") || nx; }
-function rateFor(ym){ var e = S.ex[ym] || {}; if (e.rate !== undefined && String(e.rate).trim() !== "") return num(e.rate); return String(S.cfg.rate).trim() !== "" ? c("rate") : tabRate(stepFor(ym), ym); }
+function rateFor(ym){ var t = tabRate(stepFor(ym), ym); if (t) return t; return String(S.cfg.rate).trim() !== "" ? c("rate") : 0; }
 var storeOK = true;
 try { localStorage.setItem("kd-t", "1"); storeOK = localStorage.getItem("kd-t") === "1"; localStorage.removeItem("kd-t"); } catch (e) { storeOK = false; }
 var now = new Date(), Y = now.getFullYear(), M = now.getMonth(), brush = "m";
@@ -380,7 +381,7 @@ function calc(){
 
 /* 화면 */
 var FD = {
- g1: [["hm","edu","edum","교육 시간"],["ex","al","연차 미사용 일수 (연차수당 계산 가능)","일","0"],["ex","sj","상조비","원","0"],["chk","ex","bonus","무사고포상금","60000"],["ex","wk","주휴일수","주","자동"],["ex","act","명세서 실수령액 (비교용)","원","선택"],["ex","rate","이 달 시급 직접 입력 (비우면 호봉표대로)","원","자동"]],
+ g1: [["hm","edu","edum","교육 시간"],["ex","al","연차 미사용 일수 (연차수당 계산 가능)","일","0"],["ex","sj","상조비","원","0"],["chk","ex","bonus","무사고포상금","60000"],["ex","wk","주휴일수","주","자동"],["ex","act","명세서 실수령액 (비교용)","원","선택"]],
  g0: [["msel","mstep","호봉 설정(달 마다 자동 적용)"]],
  g3: [["cfg","hpd","1일 소정근로시간","시간"],["cfg","days","월 소정근로일수 (기본급)","일"],["cfg","ot","하루 연장시간","시간"],["cfg","nm","평일 오전 야간시간","시간"],["cfg","na","평일 오후 야간시간","시간"],["cfg","nwm","주말·공휴일 오전 야간시간","시간"],["cfg","nwa","주말·공휴일 오후 야간시간","시간"]],
  g4: [["cfg","np","국민연금","원","자동 예상"],["cfg","hi","건강보험","원","자동 예상"],["cfg","lt","장기요양보험","원","자동 예상"],["cfg","ei","고용보험률","%"],["cfg","union","노동조합비율 (0 입력하면 안 냄)","%","자동 2"]],
