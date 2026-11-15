@@ -534,12 +534,21 @@ render();
     <button id="sub-acc" onclick="showSub('acc')">계정 관리<span id="st-acc"></span></button>
     <button id="sub-set" onclick="showSub('set')">급여 설정</button>
   </div>
-  <div id="ap-vac"><div id="adList"></div></div>
+  <div id="ap-vac">
+    <div class="ad-card">
+      <div class="ad-top"><span>휴무 신청 양식 (기사님 화면)</span><span id="vacState" class="bd bd-g">닫힘</span></div>
+      <div class="ad-sub">열면 기사님 화면 아래에 휴무 신청 양식이 나타나고, 닫으면 숨겨져요. 바로 적용돼요.</div>
+      <div class="ad-btns"><button id="vacToggleBtn" class="ad-ok" onclick="toggleVacForm()">휴무 신청 양식 열기</button></div>
+    </div>
+    <div id="adList"></div>
+  </div>
   <div id="ap-acc" hidden>
+    <h3>비밀번호 초기화 요청 <span id="acc-rstcnt"></span></h3>
+    <div id="rstList"></div>
     <h3>가입 요청 <span id="acc-pcnt"></span></h3>
     <div id="accPending"></div>
     <h3>등록된 계정 <span id="acc-rcnt"></span></h3>
-    <p class="ad-sub">비밀번호는 Firebase가 암호화해서 보관하기 때문에 관리자도 볼 수 없어요. 비밀번호를 잊은 기사님은 Firebase 콘솔의 Authentication → Users에서 계정을 삭제하면 다시 등록 요청할 수 있어요.</p>
+    <p class="ad-sub">퇴사 처리하면 그 기사님은 바로 앱에 들어올 수 없어요(접속 중이면 즉시 로그아웃돼요). 비밀번호는 Firebase가 암호화해서 보관하기 때문에 관리자도 볼 수 없어요. 비밀번호를 잊은 기사님은 위 ‘비밀번호 초기화 요청’에서 임시 비밀번호로 새 계정을 만들어 드리면 돼요.</p>
     <div id="accList"></div>
   </div>
   <div id="ap-set" hidden><div id="setForm"></div></div>
@@ -591,6 +600,7 @@ render();
     <label class="chk"><input type="checkbox" id="auto-login"> 자동로그인</label>
     <button onclick="login()" style="background:var(--cam)">로그인</button>
     <button onclick="openReg()" style="background:#6b7280">계정 등록</button>
+    <button onclick="openRst()" style="background:#6b7280">비밀번호 초기화 요청</button>
     <p id="login-msg" style="color:var(--neg);margin:4px 0 0;font-size:14px;text-align:center"></p>
   </div>
   <div id="door-wait" class="door-box" hidden>
@@ -607,6 +617,15 @@ render();
     <button onclick="logout()" style="background:#6b7280">로그아웃</button>
     <p id="name-msg" style="color:var(--neg);margin:0;font-size:14px;text-align:center"></p>
   </div>
+  <div id="door-newpw" class="door-box" hidden>
+    <h2 style="text-align:center;margin:0">새 비밀번호 설정</h2>
+    <p style="text-align:center;margin:0;font-size:14px">임시 비밀번호로 로그인했어요. 앞으로 쓸 새 비밀번호를 정해 주세요.</p>
+    <input type="password" id="newpw-1" placeholder="새 비밀번호 (6자리 이상)" autocomplete="new-password">
+    <input type="password" id="newpw-2" placeholder="새 비밀번호 확인" autocomplete="new-password">
+    <button onclick="submitNewPw()" style="background:var(--cam)">비밀번호 변경</button>
+    <button onclick="logout()" style="background:#6b7280">로그아웃</button>
+    <p id="newpw-msg" style="color:var(--neg);margin:0;font-size:14px;text-align:center"></p>
+  </div>
 </div>
 
 <!-- 계정 등록 팝업 -->
@@ -619,6 +638,31 @@ render();
     <button onclick="submitRegister()" style="background:var(--cam)">등록 요청</button>
     <button onclick="closeReg()" style="background:#6b7280">닫기</button>
     <p id="reg-msg" style="color:var(--neg);margin:0;font-size:14px;text-align:center"></p>
+  </div>
+</div>
+
+<!-- 비밀번호 초기화 요청 팝업 (기사님) -->
+<div id="rst-modal" class="modal" hidden>
+  <div class="door-box">
+    <h2 style="text-align:center;margin:0 0 4px">비밀번호 초기화 요청</h2>
+    <p style="margin:0;font-size:14px;text-align:center">사번과 이름을 보내면 관리자에게 요청이 전달돼요. 관리자가 처리하면 임시 비밀번호를 직접 알려 드려요.</p>
+    <input type="text" id="rst-name" maxlength="20" placeholder="이름" autocomplete="name">
+    <input type="text" id="rst-id" inputmode="numeric" pattern="[0-9]*" placeholder="사번 (숫자만 입력)" autocomplete="off">
+    <button onclick="submitResetReq()" style="background:var(--cam)">요청 보내기</button>
+    <button onclick="closeRst()" style="background:#6b7280">닫기</button>
+    <p id="rst-msg" style="color:var(--neg);margin:0;font-size:14px;text-align:center"></p>
+  </div>
+</div>
+
+<!-- 임시 비밀번호 팝업 (관리자) -->
+<div id="tmp-modal" class="modal" hidden>
+  <div class="door-box">
+    <h2 id="tmp-title" style="text-align:center;margin:0 0 4px">임시 비밀번호</h2>
+    <p id="tmp-desc" style="margin:0;font-size:14px;text-align:center"></p>
+    <input type="text" id="tmp-pw" maxlength="30" autocomplete="off" style="font-size:20px;text-align:center;letter-spacing:1px">
+    <button id="tmp-ok" style="background:var(--cam)">초기화 진행</button>
+    <button id="tmp-cancel" style="background:#6b7280">닫기</button>
+    <p id="tmp-msg" style="color:var(--neg);margin:0;font-size:14px;text-align:center"></p>
   </div>
 </div>
 
@@ -642,35 +686,47 @@ render();
   var Persist = firebase.auth.Auth.Persistence, TS = firebase.database.ServerValue.TIMESTAMP;
   var g = function(i){ return document.getElementById(i); };
   var esc = function(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
-  var idOf = function(u){ return ((u && u.email) || "").replace(/@kd\.com$/, ""); };
+  var idOf = function(u){ var e = (u && u.email) || "", m = /^(\d+)(?:-\d+)?@kd\.com$/.exec(e); return m ? m[1] : e.replace(/@kd\.com$/, ""); };
+  var emailFor = function(id, gen){ return (gen > 1 ? id + "-" + gen : id) + "@kd.com"; };
   var fmtTime = function(t){ return typeof t === "number" ? new Date(t).toLocaleString("ko-KR") : ""; };
   var curUser = null, me = "", isAdmin = false, gateBusy = false, L = {};
+  var lastPw = "", pendingMsg = "", usersCache = {}, gensCache = {}, resetCache = {};
+  var VAC_DEFAULT = false;   // DB에 값이 아직 없을 때 휴무 신청 양식을 보일지 (false = 숨김)
+  var vacVisible = VAC_DEFAULT, curView = "app";
 
   // 실시간 리스너 관리
   function listen(name, ref, cb, errcb){ unlisten(name); ref.on("value", cb, errcb || function(e){ console.error(name, e); }); L[name] = [ref, cb]; }
   function unlisten(name){ if (L[name]) { L[name][0].off("value", L[name][1]); delete L[name]; } }
   function unlistenAll(){ Object.keys(L).forEach(unlisten); }
+  // 퇴사·교체 계정: 화면 진입을 막고 즉시 로그아웃
+  function forceOut(msg){
+    pendingMsg = msg; unlistenAll();
+    auth.signOut().catch(function(){}).then(function(){ alert(msg); });
+  }
 
   // ── 로그인 관문 ──
   function showDoor(which, msg){
     var door = g("login-door");
     if (!which) { door.style.display = "none"; return; }
     door.style.display = "flex";
-    ["login", "wait", "name"].forEach(function(k){ g("door-" + k).hidden = (k !== which); });
+    ["login", "wait", "name", "newpw"].forEach(function(k){ g("door-" + k).hidden = (k !== which); });
     if (which === "login") g("login-msg").innerText = msg || "";
     if (which === "wait") g("door-wait-msg").innerText = msg || "";
     if (which === "name") g("name-msg").innerText = msg || "";
+    if (which === "newpw") g("newpw-msg").innerText = msg || "";
   }
   try { g("auto-login").checked = localStorage.getItem("kd-auto") === "1"; } catch (e) {}
 
   function login(){
     var id = g("user-id").value.trim(), pw = g("user-pw").value;
     if (!id || !pw) { showDoor("login", "사번과 비밀번호를 입력하세요."); return; }
+    if (!/^\d{1,10}$/.test(id)) { showDoor("login", "사번은 숫자만 입력하세요."); return; }
     var auto = g("auto-login").checked;
     try { localStorage.setItem("kd-auto", auto ? "1" : "0"); } catch (e) {}
-    showDoor("login", "");
+    showDoor("login", ""); lastPw = pw;
     auth.setPersistence(auto ? Persist.LOCAL : Persist.SESSION)
-      .then(function(){ return auth.signInWithEmailAndPassword(id + "@kd.com", pw); })
+      .then(function(){ return db.ref("gens/" + id).once("value").then(function(s){ return Number(s.val()) || 1; }, function(){ return 1; }); })
+      .then(function(gen){ return auth.signInWithEmailAndPassword(emailFor(id, gen), pw); })
       .catch(function(){ showDoor("login", "사번이나 비밀번호가 틀렸습니다."); });
   }
   function logout(){
@@ -688,12 +744,17 @@ render();
     curUser = user; me = idOf(user);
     isAdmin = !!user && ADMIN_IDS.indexOf(me) >= 0;
     setAdminUI(false);
-    if (!user) { showDoor("login", ""); return; }
+    if (!user) { showDoor("login", pendingMsg); pendingMsg = ""; return; }
     if (isAdmin) { enterApp(); return; }
     listen("status", db.ref("users/" + user.uid), function(snap){
       var v = snap.val();
-      if (!v) { unlisten("my"); showDoor("name", ""); return; }
-      if (v.status === "승인") { if (!L.my) enterApp(); return; }
+      if (!v || v.status === "퇴사") { forceOut("퇴사 처리된 계정입니다."); return; }
+      if (v.status === "교체") { forceOut("비밀번호가 초기화된 이전 계정이에요. 새로 받은 임시 비밀번호로 로그인해 주세요."); return; }
+      if (v.status === "승인") {
+        if (v.mustChange === true) { unlisten("my"); unlisten("settings"); unlisten("sys"); delete L.my; showDoor("newpw", ""); return; }
+        if (!L.my) enterApp();
+        return;
+      }
       unlisten("my"); unlisten("settings");
       g("door-retry").hidden = true;
       if (v.status === "대기") showDoor("wait", "관리자 승인을 기다리고 있어요. 승인되면 자동으로 열려요.");
@@ -705,10 +766,13 @@ render();
   function enterApp(){
     showDoor(null);
     listen("settings", db.ref("settings/payroll"), function(s){ applySettings(s.val()); });
+    listen("sys", db.ref("settings/system/isVacationFormVisible"), function(s){ var v = s.val(); vacVisible = (v === null || v === undefined) ? VAC_DEFAULT : (v === true); applyVac(); });
     if (isAdmin) {
       setAdminUI(true);
       listen("avac", db.ref("vacations"), function(s){ renderVac(s.val()); }, function(e){ g("adList").textContent = "불러오기 실패: " + e.message; });
       listen("ausers", db.ref("users"), function(s){ renderUsers(s.val()); }, function(e){ g("accList").textContent = "불러오기 실패: " + e.message; });
+      listen("agens", db.ref("gens"), function(s){ gensCache = s.val() || {}; });
+      listen("arst", db.ref("pwReset"), function(s){ resetCache = s.val() || {}; renderResets(resetCache); }, function(e){ g("rstList").textContent = "불러오기 실패: " + e.message; });
       L.my = true;
     } else {
       listen("my", db.ref("vacations/" + me), function(s){ renderMine(s.val()); }, function(e){ g("my-list").textContent = "불러오기 실패: " + e.message; });
@@ -759,10 +823,12 @@ render();
             if (!v) return ref.set({ name: name, empId: id, status: "대기", createdAt: TS }).then(function(){ return endReg(okText, true); });
             if (v.status === "거절") return ref.update({ status: "대기", name: name, createdAt: TS }).then(function(){ return endReg(okText, true); });
             if (v.status === "대기") return endReg("이미 승인 요청 중이에요. 조금만 기다려 주세요.", true);
+            if (v.status === "퇴사") return endReg("퇴사 처리된 계정입니다.", false);
+            if (v.status === "교체") return endReg("비밀번호가 초기화된 계정이에요. 로그인 화면에서 임시 비밀번호로 로그인해 주세요.", false);
             if (v.status === "승인") return endReg("이미 등록된 계정이에요. 로그인해 주세요.", true);
             return endReg("사용이 정지된 계정이에요. 관리자에게 문의하세요.", false);
           });
-        }, function(){ return endReg("이미 등록된 사번이에요. 비밀번호를 잊었다면 관리자에게 문의하세요.", false); })
+        }, function(){ return endReg("이미 등록된 사번이에요. 비밀번호를 잊었다면 ‘비밀번호 초기화 요청’을 눌러 주세요.", false); })
         .catch(function(e2){ return endReg("등록 실패: " + e2.message, false); });
       });
   }
@@ -815,7 +881,7 @@ render();
   function showView(v){
     var a = (v === "admin");
     g("mn").style.display = a ? "none" : "";
-    g("vac-form").style.display = a ? "none" : "";
+    curView = v; applyVac();
     g("admin-page").hidden = !a;
     g("tab-app").classList.toggle("on-tab", !a);
     g("tab-admin").classList.toggle("on-tab", a);
@@ -877,9 +943,10 @@ render();
     });
   }
   function renderUsers(all){
+    usersCache = all || {};
     var list = Object.keys(all || {}).map(function(uid){ var v = all[uid] || {}; v._uid = uid; return v; });
     var pend = list.filter(function(v){ return v.status === "대기"; }).sort(function(a, b){ return (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0); });
-    var reg = list.filter(function(v){ return v.status !== "대기"; }).sort(function(a, b){ return (Number(a.empId) || 0) - (Number(b.empId) || 0); });
+    var reg = list.filter(function(v){ return v.status !== "대기" && v.status !== "교체"; }).sort(function(a, b){ return (Number(a.empId) || 0) - (Number(b.empId) || 0); });
     g("st-acc").textContent = pend.length ? " (" + pend.length + ")" : "";
     g("acc-pcnt").textContent = pend.length ? "(" + pend.length + "명)" : "";
     g("acc-rcnt").textContent = reg.length ? "(" + reg.length + "명)" : "";
@@ -897,23 +964,168 @@ render();
       g("accPending").appendChild(d);
     });
     reg.forEach(function(v){
-      var cls = v.status === "승인" ? "bd-a" : v.status === "거절" ? "bd-r" : "bd-g";
+      var cls = v.status === "승인" ? "bd-a" : v.status === "거절" ? "bd-r" : "bd-g", gone = v.status === "퇴사";
       var d = document.createElement("div"); d.className = "ad-card";
-      var main = v.status === "승인" ? '<button class="ad-gray c-main">사용 정지</button>' : '<button class="ad-ok c-main">' + (v.status === "정지" ? "정지 해제" : "승인") + '</button>';
+      var main = v.status === "승인" ? '<button class="ad-gray c-main">사용 정지</button>' : '<button class="ad-ok c-main">' + (gone ? "복직" : v.status === "정지" ? "정지 해제" : "승인") + '</button>';
       d.innerHTML = '<div class="ad-top"><span>' + esc(v.name) + ' <span class="bd ' + cls + '">' + esc(v.status) + '</span></span><span>사번 ' + esc(v.empId) + '</span></div>' +
-        '<div class="ad-sub">요청 ' + esc(fmtTime(v.createdAt)) + (v.decidedBy ? ' · 처리 ' + esc(v.decidedBy) : '') + '</div>' +
-        '<div class="ad-btns">' + main + '<button class="ad-no c-del">목록 삭제</button></div>';
-      var main_b = d.querySelector(".c-main"), del_b = d.querySelector(".c-del"), all2 = [main_b, del_b];
+        '<div class="ad-sub">요청 ' + esc(fmtTime(v.createdAt)) + (v.decidedBy ? ' · 처리 ' + esc(v.decidedBy) : '') + (gone && v.leftAt ? ' · 퇴사 ' + esc(fmtTime(v.leftAt)) : '') + '</div>' +
+        '<div class="ad-btns">' + main + (gone ? '' : '<button class="ad-no c-out">퇴사 처리</button>') + '<button class="ad-gray c-del">기록 삭제</button></div>';
+      var main_b = d.querySelector(".c-main"), out_b = d.querySelector(".c-out"), del_b = d.querySelector(".c-del"), all2 = [main_b, out_b, del_b].filter(Boolean);
       main_b.onclick = function(){
         var to = v.status === "승인" ? "정지" : "승인";
-        if (confirm(v.name + "(" + v.empId + ") 계정을 " + (to === "정지" ? "정지" : "승인") + "할까요?")) setUserStatus(v._uid, to, all2);
+        if (confirm(v.name + "(" + v.empId + ") 계정을 " + (gone ? "복직" : to === "정지" ? "정지" : "승인") + "할까요?")) setUserStatus(v._uid, to, all2);
+      };
+      if (out_b) out_b.onclick = function(){
+        if (confirm(v.name + "(" + v.empId + ") 퇴사 처리할까요?\n이 계정은 바로 앱에 들어올 수 없게 돼요.")) leaveUser(v._uid, all2);
       };
       del_b.onclick = function(){
-        if (!confirm(v.name + "(" + v.empId + ") 기록을 목록에서 삭제할까요?\n(로그인 계정 자체는 Firebase 콘솔에서 따로 삭제해야 해요)")) return;
+        if (!confirm(v.name + "(" + v.empId + ") 기록을 완전히 삭제할까요?\n(삭제해도 이 계정은 앱에 들어올 수 없어요. 퇴사 기록을 남기려면 ‘퇴사 처리’를 쓰세요)")) return;
         all2.forEach(function(b){ b.disabled = true; });
         db.ref("users/" + v._uid).remove().catch(function(err){ alert("삭제 실패: " + err.message); all2.forEach(function(b){ b.disabled = false; }); });
       };
       g("accList").appendChild(d);
+    });
+    renderResets(resetCache);
+  }
+  function leaveUser(uid, btns){
+    btns.forEach(function(b){ b.disabled = true; });
+    db.ref("users/" + uid).update({ status: "퇴사", leftAt: TS, decidedBy: me, decidedAt: TS }).catch(function(err){
+      alert("처리 실패: " + err.message); btns.forEach(function(b){ b.disabled = false; });
+    });
+  }
+
+  // ── 휴무 신청 양식 열기/닫기 (settings/system/isVacationFormVisible) ──
+  function applyVac(){
+    g("vac-form").style.display = (curView === "app" && vacVisible) ? "" : "none";
+    var st = g("vacState"), bt = g("vacToggleBtn");
+    if (st) { st.textContent = vacVisible ? "열림" : "닫힘"; st.className = "bd " + (vacVisible ? "bd-a" : "bd-g"); }
+    if (bt) { bt.textContent = vacVisible ? "휴무 신청 양식 닫기" : "휴무 신청 양식 열기"; bt.className = vacVisible ? "ad-gray" : "ad-ok"; }
+  }
+  function toggleVacForm(){
+    if (!isAdmin) return;
+    var bt = g("vacToggleBtn"); bt.disabled = true;
+    db.ref("settings/system/isVacationFormVisible").set(!vacVisible)
+      .catch(function(e){ alert("변경 실패: " + e.message); })
+      .then(function(){ bt.disabled = false; });
+  }
+  applyVac();
+
+  // ── 비밀번호 초기화 (기사님 요청 → 관리자 처리) ──
+  function openRst(){ g("rst-msg").innerText = ""; g("rst-modal").hidden = false; g("rst-name").focus(); }
+  function closeRst(){ g("rst-modal").hidden = true; }
+  function submitResetReq(){
+    var name = g("rst-name").value.trim(), id = g("rst-id").value.trim(), m = g("rst-msg");
+    if (!/^\d{1,10}$/.test(id)) { m.innerText = "사번은 숫자만 입력하세요."; return; }
+    if (!name || name.length > 20) { m.innerText = "이름을 20자 이내로 입력하세요."; return; }
+    if (ADMIN_IDS.indexOf(id) >= 0) { m.innerText = "사용할 수 없는 사번입니다."; return; }
+    m.style.color = ""; m.innerText = "요청 중...";
+    db.ref("pwReset/" + id).set({ name: name, empId: id, status: "요청", requestedAt: TS })
+      .then(function(){
+        g("rst-name").value = ""; g("rst-id").value = "";
+        m.innerText = "요청이 접수됐어요. 관리자가 처리하면 임시 비밀번호를 알려 드려요.";
+      })
+      .catch(function(err){
+        m.innerText = (err && err.code === "PERMISSION_DENIED") ? "이미 접수된 요청이 있어요. 관리자 처리를 기다려 주세요." : "요청 실패: " + err.message;
+      });
+  }
+  // 임시 비밀번호로 로그인한 직후: 새 비밀번호 정하기
+  function submitNewPw(){
+    var a = g("newpw-1").value, b = g("newpw-2").value, m = g("newpw-msg"), u = auth.currentUser;
+    if (!u) return;
+    if (a.length < 6) { m.innerText = "새 비밀번호는 6자리 이상이에요."; return; }
+    if (a !== b) { m.innerText = "비밀번호가 서로 달라요."; return; }
+    if (a === lastPw) { m.innerText = "임시 비밀번호와 다른 비밀번호를 입력하세요."; return; }
+    m.innerText = "변경 중...";
+    u.updatePassword(a)
+      .then(function(){ return db.ref("users/" + u.uid).update({ mustChange: false }); })
+      .then(function(){ g("newpw-1").value = ""; g("newpw-2").value = ""; lastPw = ""; })
+      .catch(function(e){
+        if (e && e.code === "auth/requires-recent-login") { pendingMsg = "보안을 위해 임시 비밀번호로 다시 로그인해 주세요."; unlistenAll(); auth.signOut(); }
+        else m.innerText = "변경 실패: " + e.message;
+      });
+  }
+  // 관리자: 초기화 요청 목록
+  function renderResets(all){
+    var rows = Object.keys(all || {}).map(function(id){ var v = all[id] || {}; v._id = id; return v; })
+      .filter(function(v){ return v.status === "요청"; })
+      .sort(function(a, b){ return (Number(a.requestedAt) || 0) - (Number(b.requestedAt) || 0); });
+    g("acc-rstcnt").textContent = rows.length ? "(" + rows.length + "건)" : "";
+    g("rstList").innerHTML = rows.length ? "" : '<p style="opacity:.7">대기 중인 초기화 요청이 없습니다.</p>';
+    rows.forEach(function(v){
+      var recs = Object.keys(usersCache).map(function(uid){ var u = usersCache[uid] || {}; u._uid = uid; return u; }).filter(function(u){ return u.empId === v._id; });
+      var cur = recs.filter(function(u){ return u.status === "승인"; })[0];
+      var info = !cur ? '<span class="bd bd-r">승인된 계정 없음</span>' : (cur.name === v.name ? '<span class="bd bd-a">이름 일치</span>' : '<span class="bd bd-w">이름 불일치 (등록: ' + esc(cur.name) + ')</span>');
+      var d = document.createElement("div"); d.className = "ad-card";
+      d.innerHTML = '<div class="ad-top"><span>' + esc(v.name) + ' ' + info + '</span><span>사번 ' + esc(v._id) + '</span></div>' +
+        '<div class="ad-sub">요청 ' + esc(fmtTime(v.requestedAt)) + '</div>' +
+        '<div class="ad-btns"><button class="ad-ok r-go">임시 비밀번호로 초기화</button><button class="ad-gray r-del">요청 삭제</button></div>';
+      var go = d.querySelector(".r-go"), del = d.querySelector(".r-del");
+      if (!cur) go.disabled = true;
+      go.onclick = function(){
+        if (cur && cur.name !== v.name && !confirm("입력한 이름(" + v.name + ")이 등록된 이름(" + cur.name + ")과 달라요.\n본인이 맞는지 확인하셨나요?")) return;
+        openTmp(v._id, v.name, cur);
+      };
+      del.onclick = function(){
+        if (!confirm("사번 " + v._id + " 초기화 요청을 삭제할까요?")) return;
+        db.ref("pwReset/" + v._id).remove().catch(function(err){ alert("삭제 실패: " + err.message); });
+      };
+      g("rstList").appendChild(d);
+    });
+  }
+  function randTmp(){
+    var a = "abcdefghjkmnpqrstuvwxyz23456789", out = "", r = new Uint32Array(8);
+    (window.crypto || window.msCrypto).getRandomValues(r);
+    for (var i = 0; i < 8; i++) out += a[r[i] % a.length];
+    return out;
+  }
+  function openTmp(id, name, cur){
+    var ok = g("tmp-ok"), cancel = g("tmp-cancel"), pw = g("tmp-pw"), msg = g("tmp-msg");
+    g("tmp-title").textContent = "임시 비밀번호 정하기"; msg.innerText = "";
+    g("tmp-desc").textContent = name + " (사번 " + id + ") 계정을 새 임시 비밀번호로 다시 만들어요. 기존 비밀번호로는 더 이상 들어올 수 없어요.";
+    pw.readOnly = false; pw.value = randTmp(); ok.textContent = "초기화 진행"; ok.disabled = false; ok.onclick = go;
+    cancel.onclick = function(){ g("tmp-modal").hidden = true; pw.value = ""; };
+    g("tmp-modal").hidden = false;
+    function go(){
+      var tmp = pw.value.trim();
+      if (tmp.length < 6) { msg.innerText = "임시 비밀번호는 6자리 이상이에요."; return; }
+      ok.disabled = true; msg.innerText = "처리 중...";
+      resetAccount(id, name, tmp).then(function(){
+        msg.innerText = ""; g("tmp-title").textContent = "초기화 완료";
+        g("tmp-desc").textContent = "이 임시 비밀번호를 기사님께 직접 전달하세요. 로그인하면 바로 새 비밀번호를 정하게 돼요. 이 창을 닫으면 다시 볼 수 없어요.";
+        pw.readOnly = true; ok.textContent = "복사"; ok.disabled = false;
+        ok.onclick = function(){ pw.select(); try { document.execCommand("copy"); ok.textContent = "복사됨"; } catch (e) {} };
+        cancel.onclick = function(){ g("tmp-modal").hidden = true; pw.value = ""; };
+      }).catch(function(err){ ok.disabled = false; msg.innerText = "초기화 실패: " + (err && err.message || err); });
+    }
+  }
+  // 클라이언트에서는 남의 비밀번호를 바꾸거나 계정을 지울 수 없어서, 사번에 세대 번호를 붙인 새 계정(예: 1001-2@kd.com)을
+  // 임시 비밀번호로 만들고 옛 계정은 명부에서 '교체' 처리해 앱에 못 들어오게 한다. (관리자 로그인은 유지되도록 보조 앱으로 생성)
+  function resetAccount(id, name, tmp){
+    var recs = Object.keys(usersCache).map(function(uid){ var u = usersCache[uid] || {}; u._uid = uid; return u; }).filter(function(u){ return u.empId === id; });
+    var cur = recs.filter(function(u){ return u.status === "승인"; })[0];
+    if (!cur) return Promise.reject(new Error("명부에 승인된 계정이 없어요."));
+    var gen = Math.max(Number(gensCache[id]) || 1, recs.reduce(function(mx, u){ return Math.max(mx, Number(u.gen) || 1); }, 1)) + 1, tries = 0;
+    function attempt(){
+      var app = firebase.initializeApp(firebaseConfig, "sec" + Date.now() + "_" + tries), sa = app.auth();
+      return sa.setPersistence(firebase.auth.Auth.Persistence.NONE).catch(function(){})
+        .then(function(){ return sa.createUserWithEmailAndPassword(emailFor(id, gen), tmp); })
+        .then(function(cred){
+          var uid = cred.user.uid;
+          return sa.signOut().catch(function(){}).then(function(){ return app.delete().catch(function(){}); }).then(function(){ return uid; });
+        }, function(err){
+          return app.delete().catch(function(){}).then(function(){
+            if (err.code === "auth/email-already-in-use" && tries++ < 5) { gen++; return attempt(); }
+            throw err;
+          });
+        });
+    }
+    return attempt().then(function(newUid){
+      var upd = {};
+      upd["users/" + newUid] = { name: cur.name || name, empId: id, status: "승인", mustChange: true, gen: gen, createdAt: TS, decidedBy: me, decidedAt: TS };
+      upd["users/" + cur._uid + "/status"] = "교체";
+      upd["gens/" + id] = gen;
+      upd["pwReset/" + id] = { name: name, empId: id, status: "처리완료", processedAt: TS, processedBy: me };
+      return db.ref().update(upd);
     });
   }
 
