@@ -696,7 +696,7 @@ render();
 
   // 실시간 리스너 관리
   function listen(name, ref, cb, errcb){ unlisten(name); ref.on("value", cb, errcb || function(e){ console.error(name, e); }); L[name] = [ref, cb]; }
-  function unlisten(name){ if (L[name]) { L[name][0].off("value", L[name][1]); delete L[name]; } }
+  function unlisten(name){ if (L[name] && Array.isArray(L[name])) { L[name][0].off("value", L[name][1]); } delete L[name]; }
   function unlistenAll(){ Object.keys(L).forEach(unlisten); }
   // 퇴사·교체 계정: 화면 진입을 막고 즉시 로그아웃
   function forceOut(msg){
