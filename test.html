@@ -1073,34 +1073,32 @@ render();
       g("rstList").appendChild(d);
     });
   }
-  function randTmp(){
-    var a = "abcdefghjkmnpqrstuvwxyz23456789", out = "", r = new Uint32Array(8);
-    (window.crypto || window.msCrypto).getRandomValues(r);
-    for (var i = 0; i < 8; i++) out += a[r[i] % a.length];
-    return out;
-  }
-  function openTmp(id, name, cur){
+    function openTmp(id, name, cur){
     var ok = g("tmp-ok"), cancel = g("tmp-cancel"), pw = g("tmp-pw"), msg = g("tmp-msg");
     g("tmp-title").textContent = "임시 비밀번호 정하기"; msg.innerText = "";
-    g("tmp-desc").textContent = name + " (사번 " + id + ") 계정을 새 임시 비밀번호로 다시 만들어요. 기존 비밀번호로는 더 이상 들어올 수 없어요.";
-    pw.readOnly = false; pw.value = randTmp(); ok.textContent = "초기화 진행"; ok.disabled = false; ok.onclick = go;
+    g("tmp-desc").textContent = name + " (사번 " + id + ") 계정의 비밀번호를 '123456'으로 초기화 합니다.";
+    
+    pw.readOnly = false; 
+    pw.value = "123456"; 
+    
+    ok.textContent = "초기화 진행"; ok.disabled = false; ok.onclick = go;
     cancel.onclick = function(){ g("tmp-modal").hidden = true; pw.value = ""; };
     g("tmp-modal").hidden = false;
+    
     function go(){
       var tmp = pw.value.trim();
-      if (tmp.length < 6) { msg.innerText = "임시 비밀번호는 6자리 이상이에요."; return; }
+      if (tmp.length < 6) { msg.innerText = "임시 비밀번호는 6자리 이상이어야 하옵니다."; return; }
       ok.disabled = true; msg.innerText = "처리 중...";
       resetAccount(id, name, tmp).then(function(){
         msg.innerText = ""; g("tmp-title").textContent = "초기화 완료";
-        g("tmp-desc").textContent = "이 임시 비밀번호를 기사님께 직접 전달하세요. 로그인하면 바로 새 비밀번호를 정하게 돼요. 이 창을 닫으면 다시 볼 수 없어요.";
-        pw.readOnly = true; ok.textContent = "복사"; ok.disabled = false;
-        ok.onclick = function(){ pw.select(); try { document.execCommand("copy"); ok.textContent = "복사됨"; } catch (e) {} };
-        cancel.onclick = function(){ g("tmp-modal").hidden = true; pw.value = ""; };
+        g("tmp-desc").textContent = "초기화가 완료되었사옵니다! 기사님께 '123456'으로 로그인하라고 일러주시옵소서.";
+        pw.readOnly = true; ok.textContent = "닫기"; ok.disabled = false;
+        ok.onclick = function(){ g("tmp-modal").hidden = true; pw.value = ""; };
+        cancel.hidden = true; // 완료 후에는 닫기 버튼 하나만 남기옵니다
       }).catch(function(err){ ok.disabled = false; msg.innerText = "초기화 실패: " + (err && err.message || err); });
     }
   }
-  // 클라이언트에서는 남의 비밀번호를 바꾸거나 계정을 지울 수 없어서, 사번에 세대 번호를 붙인 새 계정(예: 1001-2@kd.com)을
-  // 임시 비밀번호로 만들고 옛 계정은 명부에서 '교체' 처리해 앱에 못 들어오게 한다. (관리자 로그인은 유지되도록 보조 앱으로 생성)
+
   function resetAccount(id, name, tmp){
     var recs = Object.keys(usersCache).map(function(uid){ var u = usersCache[uid] || {}; u._uid = uid; return u; }).filter(function(u){ return u.empId === id; });
     var cur = recs.filter(function(u){ return u.status === "승인"; })[0];
