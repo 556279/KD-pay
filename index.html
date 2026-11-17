@@ -600,8 +600,30 @@ render();
   function listen(name, ref, cb, errcb){ unlisten(name); ref.on("value", cb, errcb || function(e){ console.error(name, e); }); L[name] = [ref, cb]; }
   function unlisten(name){ if (L[name] && Array.isArray(L[name])) { L[name][0].off("value", L[name][1]); } delete L[name]; }
 
+  // 저장된 전역 급여 설정 로컬 캐시 우선 적용
+  try {
+    var cachedSet = localStorage.getItem("kd-sys-payroll");
+    if (cachedSet) applySettings(JSON.parse(cachedSet));
+  } catch (e) {}
+
   // 전역 급여 설정 리스너 시작 (첫 화면부터 자동 적용)
-  listen("settings", db.ref("settings/payroll"), function(s){ applySettings(s.val()); });
+  function startSettingsListener(){
+    listen("settings", db.ref("settings/payroll"), function(s){
+      var val = s.val();
+      if (val) {
+        try { localStorage.setItem("kd-sys-payroll", JSON.stringify(val)); } catch (e) {}
+        applySettings(val);
+      }
+    }, function(err){
+      console.error("settings read error:", err);
+      var m = g("set-msg");
+      if (m) {
+        m.style.color = "var(--neg)";
+        m.textContent = "설정 불러오기 실패: " + (err && err.message || err);
+      }
+    });
+  }
+  startSettingsListener();
 
   try { g("auto-login").checked = localStorage.getItem("kd-auto") === "1"; } catch (e) {}
 
@@ -655,7 +677,7 @@ render();
     curUser = user; me = idOf(user);
     isAdmin = !!user && ADMIN_IDS.indexOf(me) >= 0;
     // 로그인 상태 변경 시 급여 설정 리스너 재연결 (DB 권한 규칙 대응)
-    listen("settings", db.ref("settings/payroll"), function(s){ applySettings(s.val()); });
+    startSettingsListener();
     if (isAdmin) {
       g("login-modal").hidden = true;
       g("login-msg").innerText = "";
@@ -742,29 +764,58 @@ render();
       '<label>건강보험 (%)<input type="number" step="any" id="set-rt-hi" value="' + RT.hi + '"></label>' +
       '<label>장기요양 (건강보험의 %)<input type="number" step="any" id="set-rt-lt" value="' + RT.lt + '"></label>' +
       '<label>국민연금 상한 (원)<input type="number" id="set-rt-npcap" value="' + RT.npcap + '"></label></div>' +
-      '<div class="ad-btns" style="margin-top:14px"><button class="ad-ok" onclick="saveSettings()">저장 (모든 기사님에게 바로 적용)</button></div>';
+      '<div class="ad-btns" style="margin-top:14px"><button id="set-save-btn" class="ad-ok" onclick="saveSettings()">저장하기</button></div><p id="set-msg" style="margin:8px 0 0;font-size:14px;font-weight:700;text-align:center"></p>';
     g("setForm").innerHTML = h;
   }
 
+  function setMsg(text, isErr){
+    var m = g("set-msg");
+    if (m) {
+      m.style.color = isErr ? "var(--neg)" : "#16a34a";
+      m.textContent = text || "";
+    }
+    if (text) showNotice(text);
+  }
+
   function saveSettings(){
+    if (!isAdmin) { setMsg("관리자 로그인이 필요합니다.", true); return; }
     var pay = {};
     for (var n = 1; n <= 13; n++) {
       var x = Number(g("set-pay-" + n).value);
-      if (!(x > 0)) { showNotice(n + "호봉 시급을 숫자로 입력해 주세요."); return; }
+      if (!(x > 0)) { setMsg(n + "호봉 시급을 숫자로 입력해 주세요.", true); return; }
       pay["s" + n] = Math.round(x);
     }
     var raises = {};
     for (var i = 1; i <= 3; i++) {
       var ym = g("set-rz-ym-" + i).value.trim(), pct = g("set-rz-pct-" + i).value;
       if (!ym && pct === "") continue;
-      if (!/^\d{4}-\d{2}$/.test(ym) || pct === "" || !isFinite(Number(pct))) { showNotice("인상 예약 " + i + "번의 적용 달과 인상률을 모두 입력해 주세요."); return; }
+      if (!/^\d{4}-\d{2}$/.test(ym) || pct === "" || !isFinite(Number(pct))) { setMsg("인상 예약 " + i + "번의 적용 달과 인상률을 모두 입력해 주세요.", true); return; }
       raises[ym] = Number(pct);
     }
     var rates = { np: Number(g("set-rt-np").value), hi: Number(g("set-rt-hi").value), lt: Number(g("set-rt-lt").value), npcap: Number(g("set-rt-npcap").value) };
-    for (var k in rates) if (!(rates[k] > 0)) { showNotice("공제 요율을 모두 숫자로 입력해 주세요."); return; }
-    db.ref("settings/payroll").set({ pay: pay, raises: raises, rates: rates, updatedAt: TS, updatedBy: me })
-      .then(function(){ showNotice("저장됐어요. 모든 기사님 화면에 바로 적용돼요."); })
-      .catch(function(err){ showNotice("저장 실패: " + err.message); });
+    for (var k in rates) if (!(rates[k] > 0)) { setMsg("공제 요율을 모두 숫자로 입력해 주세요.", true); return; }
+
+    var btn = g("set-save-btn");
+    if (btn) btn.disabled = true;
+    setMsg("저장 중...", false);
+
+    var payload = { pay: pay, raises: raises, rates: rates, updatedAt: TS, updatedBy: me };
+    db.ref("settings/payroll").set(payload)
+      .then(function(){
+        var localData = { pay: pay, raises: raises, rates: rates };
+        try { localStorage.setItem("kd-sys-payroll", JSON.stringify(localData)); } catch (e) {}
+        applySettings(localData);
+        setMsg("저장됐어요. 모든 기사님 화면에 바로 적용돼요.", false);
+      })
+      .catch(function(err){
+        var msg = (err && err.code === "PERMISSION_DENIED")
+          ? "저장 실패: Firebase 권한이 없습니다. (관리자 사번 또는 DB 규칙을 확인하세요)"
+          : "저장 실패: " + (err && err.message || err);
+        setMsg(msg, true);
+      })
+      .then(function(){
+        if (btn) btn.disabled = false;
+      });
   }
 </script>
 
