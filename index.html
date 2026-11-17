@@ -193,7 +193,7 @@ main{padding-left:10px;padding-right:10px}
     <p class="hint" id="first">처음 한 번만 호봉과 쉬는 요일을 골라 주세요. 나머지는 알아서 채워 두었고, 틀리면 고칠 수 있어요.</p>
     <div class="grid" id="g0"></div>
     
-    <h3>고정 휴무일 (쉬는 요일)</h3><div class="seg" id="offw" style="--c:7"></div>
+    <h3>고정 휴무일 (쉬는 요일)</h3><div class="seg" id="offw" style="--c:7"></div><p class="hint" id="whhint"></p>
     <details class="more"><summary>자세히 설정 (몰라도 괜찮아요)</summary>
       <h3>휴무일에 일했을 때 수당 방식</h3><div class="seg" id="xm" style="--c:2"></div>
       <h3>근무 기본값 (필요할 때만 고치세요)</h3><div class="grid" id="g3"></div>
@@ -243,6 +243,17 @@ if (!raw) idbGet(function(v){ if (!v) return; try { localStorage.setItem(KEY, v)
 document.addEventListener("visibilitychange", function(){ if (document.hidden) save(); });
 window.addEventListener("pagehide", save);
 function isOff(dw){ return (S.cfg.off || []).indexOf(dw) >= 0; }
+/* 주휴일 요일: 고정 휴무일이 이어진 구간의 맨 뒤 요일 (월·화→화, 화·수→수, 수·목→목, 목·금→금, 금·토→토, 토·일→일, 일·월→월).
+   휴무일이 한 구간이 아니거나 비어 있으면 예전처럼 금요일 기준 */
+var DOWN = ["일","월","화","수","목","금","토"];
+function whInfo(){
+  var set = {}, n = 0;
+  (S.cfg.off || []).forEach(function(d){ if (d >= 0 && d <= 6 && !set[d]) { set[d] = 1; n++; } });
+  if (n === 0 || n === 7) return { dow: 5, auto: false };
+  var ends = [];
+  for (var d = 0; d < 7; d++) if (set[d] && !set[(d + 1) % 7]) ends.push(d);
+  return ends.length === 1 ? { dow: ends[0], auto: true } : { dow: 5, auto: false };
+}
 function ymk(){ return Y + "-" + pad(M + 1); }
 function getEx(){ var k = ymk(); return S.ex[k] || (S.ex[k] = {edu:"", al:"", sj:"", wk:"", taxm:"", act:""}); }
 
@@ -321,10 +332,11 @@ function line(name, f, amt, neg){
 
 function calc(){
   var k = ymk(), sc = S.sched[k] || {}, ex = getEx(), h = hols(Y), nd = new Date(Y, M + 1, 0).getDate();
-  var m = 0, a = 0, hm = 0, ha = 0, phm = 0, pha = 0, ph = 0, fri = 0, nR = 0, nP = 0, nH = 0;
+  var m = 0, a = 0, hm = 0, ha = 0, phm = 0, pha = 0, ph = 0, actualWeeklyHolidays = 0, nR = 0, nP = 0, nH = 0;
+  var wh = whInfo(), wdHol = wh.dow;
   for (var d = 1; d <= nd; d++) {
     var dw = new Date(Y, M, d).getDay(), paid = !!h[Y + "-" + pad(M + 1) + "-" + pad(d)];
-    if (dw === 5) fri++;
+    if (dw === wdHol) actualWeeklyHolidays++;
     if (paid) ph++;
     var st = sc[d]; if (!st) continue;
     var mor = st.toLowerCase() === "m", flag = st !== st.toLowerCase();
@@ -336,7 +348,7 @@ function calc(){
   ph = Math.max(0, ph + c("adj"));
   var rate = rateFor(k), hpd = c("hpd"), daily = rate * hpd, ot = c("ot");
   var dayHol = rate * (hpd * 1.5 + ot * 2);
-  var wk = (ex.wk !== undefined && String(ex.wk).trim() !== "") ? num(ex.wk) : fri;
+  var wkManual = (ex.wk !== undefined && String(ex.wk).trim() !== ""), wk = wkManual ? num(ex.wk) : actualWeeklyHolidays;
   var base = daily * c("days"), weekly = daily * wk;
   var over = rate * (m + a) * ot * 1.5, night = rate * nR * 0.5;
   var paidHol = daily * ph, paidWork = (phm + pha) * dayHol + rate * 0.5 * nP, hol = (hm + ha) * dayHol + rate * 0.5 * nH;
@@ -353,10 +365,12 @@ function calc(){
     ["고용보험", "지급총액의 " + c("ei") + "%", f10(gross * c("ei") / 100)], ["상조비", "", num(ex.sj)], ["노동조합비", "지급총액의 " + uPct + "%" + (uBlank ? " (기본)" : ""), f10(gross * uPct / 100)]];
   var ded = dd.reduce(function(s, x){ return s + x[2]; }, 0), net = gross - ded;
   var worked = m + a + hm + ha + phm + pha;
+  var hh = $("whhint");
+  if (hh) hh.textContent = wh.auto ? "주휴일: " + DOWN[wdHol] + "요일 (이 달 " + (M + 1) + "월에는 " + actualWeeklyHolidays + "번)" : "쉬는 요일을 이어진 날로 고르면(예: 토·일) 뒤의 요일이 주휴일이 돼요. 지금은 금요일 기준으로 계산해요.";
 
   $("pay").innerHTML =
     line("기본급", "시급 × " + hpd + "시간 × " + c("days") + "일 (매달 같음)", base) +
-    line("주휴수당", "일 기본급 × " + wk + "주", weekly) +
+    line("주휴수당", "일 기본급 × " + wk + "주" + (wkManual ? " (직접 입력)" : " (이번 달 " + DOWN[wdHol] + "요일이 " + actualWeeklyHolidays + "번)"), weekly) +
     line("연장근로수당", "시급 × 평일 " + (m + a) + "일 × 연장 " + ot + "시간 × 1.5", over) +
     line("야간근로수당", "시급 × 야간 " + (Math.round(nR * 100) / 100) + "시간 × 0.5", night) +
     line("경축수당 (유급휴일)", "일 기본급 × 법정공휴일 " + ph + "일", paidHol) +
