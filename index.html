@@ -320,7 +320,7 @@ function hols(y){
 
 /* ── 공휴일 자동 불러오기: 공공데이터포털 · 한국천문연구원 특일 정보(getRestDeInfo) ──
    실패(인터넷 끊김·시간 초과·인증키 오류·브라우저 보안 차단 등)하면 조용히 '오프라인 모드'로 바꾸고 내장 달력으로 계속 계산해요. */
-var HOL_API = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo";
+var HOL_API = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo";type=json
 var HOL_KEY_DEFAULT = "";            // 인증키를 코드에 직접 넣고 싶으면 여기에 (비워 두면 설정 화면에서 입력)
 var HOL_TIMEOUT = 6000, HOL_FRESH = 7 * 864e5;
 var HAPI = {}, HTRY = {}, HBUSY = {}, holMode = "builtin", holWhy = "";
