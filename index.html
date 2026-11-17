@@ -534,9 +534,7 @@ render();
 .chk input{width:20px;height:20px}
 .modal{position:fixed;top:0;left:0;width:100%;height:100%;z-index:10000;background:rgba(0,0,0,.6);display:flex;justify-content:center;align-items:center;padding:20px}
 .modal .door-box{background:var(--card);color:var(--ink);padding:22px 20px;border-radius:16px;box-shadow:0 10px 28px rgba(0,0,0,.35)}
-#kd-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--card);padding:12px 20px;border-radius:99px;font-size:15px;font-weight:700;z-index:20000;box-shadow:0 6px 20px rgba(0,0,0,.3);transition:opacity .25s}
 </style>
-<div id="kd-toast" hidden></div>
 
 <div id="admin-page" hidden>
   <div class="ad-card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -586,15 +584,7 @@ render();
   var esc = function(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
   var idOf = function(u){ var e = (u && u.email) || "", m = /^(\d+)(?:-\d+)?@kd\.com$/.exec(e); return m ? m[1] : e.replace(/@kd\.com$/, ""); };
   var emailFor = function(id, gen){ return (gen > 1 ? id + "-" + gen : id) + "@kd.com"; };
-  var curUser = null, me = "", isAdmin = false, wantAdmin = false, L = {}, toastTimer = null;
-  function showNotice(m){
-    var t = g("kd-toast");
-    if (!t) return;
-    t.textContent = m;
-    t.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function(){ t.hidden = true; }, 2800);
-  }
+  var curUser = null, me = "", isAdmin = false, wantAdmin = false, L = {};
 
   // 실시간 리스너 관리
   function listen(name, ref, cb, errcb){ unlisten(name); ref.on("value", cb, errcb || function(e){ console.error(name, e); }); L[name] = [ref, cb]; }
@@ -666,7 +656,6 @@ render();
     auth.signOut().then(function(){
       g("user-id").value = ""; g("user-pw").value = "";
       showView("app");
-      showNotice("로그아웃 완료");
     });
   }
 
@@ -774,7 +763,6 @@ render();
       m.style.color = isErr ? "var(--neg)" : "#16a34a";
       m.textContent = text || "";
     }
-    if (text) showNotice(text);
   }
 
   function saveSettings(){
@@ -805,7 +793,7 @@ render();
         var localData = { pay: pay, raises: raises, rates: rates };
         try { localStorage.setItem("kd-sys-payroll", JSON.stringify(localData)); } catch (e) {}
         applySettings(localData);
-        setMsg("저장됐어요. 모든 기사님 화면에 바로 적용돼요.", false);
+        setMsg("저장완료", false);
       })
       .catch(function(err){
         var msg = (err && err.code === "PERMISSION_DENIED")
