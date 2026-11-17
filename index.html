@@ -143,9 +143,6 @@ main{padding-left:10px;padding-right:10px}
 #cal.anL{animation:inL .22s ease-out}
 #cal.anR{animation:inR .22s ease-out}
 @media (prefers-reduced-motion:reduce){#cal.anL,#cal.anR{animation:none}}
-.holst{display:inline-block;margin:-2px 0 10px;padding:4px 11px;border-radius:99px;font-size:12.5px;line-height:1.4;background:var(--cell);color:var(--sub)}
-.holst.api{color:var(--af)}
-.holst.off{color:var(--neg)}
 </style>
 </head>
 <body>
@@ -170,7 +167,6 @@ main{padding-left:10px;padding-right:10px}
 <section class="card">
   <h2>근무 달력</h2>
   <div class="cnav"><button type="button" id="cprev" aria-label="이전 달">‹</button><select id="ysel" aria-label="연도"></select><select id="monsel" aria-label="월"></select><button type="button" id="cnext" aria-label="다음 달">›</button></div>
-  <div class="holst" id="holst" aria-live="polite"></div>
   <div class="seg" id="seg" style="--c:4"><button type="button" data-b="m">오전</button><button type="button" data-b="a">오후</button><button type="button" data-b="h">휴일근로</button><button type="button" data-b="x">지우기</button></div>
   <div class="cal" id="cal"></div>
   <p class="hint">먼저 위에서 오전이나 오후를 고르고, 일한 날짜를 누르세요. 같은 날을 한 번 더 누르면 지워져요. 공휴일과 쉬는 요일은 알아서 표시돼요. 쉬는 날에 일해도 그냥 오전·오후로 누르면 돼요. 만근 근무 후 휴무일 근무 시 휴일 근로 표시하세요. 달력을 옆으로 밀면 이전 달·다음 달로 넘어가요.</p>
@@ -204,10 +200,6 @@ main{padding-left:10px;padding-right:10px}
       <h3>공제 (비워 두면 알아서 예상해요)</h3><div class="grid" id="g4"></div>
       <h3>소득세 보정 (지난 명세서의 과세급여와 갑근세, 최대 3개)</h3><div class="grid" id="g5"></div>
       <h3>기타</h3><div class="grid" id="g6"></div>
-      <h3>공휴일 자동 불러오기 (공공데이터포털 · 한국천문연구원 특일 정보)</h3>
-      <div class="f"><input type="text" id="holkey" placeholder="일반 인증키 붙여넣기" autocomplete="off" spellcheck="false"></div>
-      <div class="seg" style="--c:2;margin-top:8px"><button id="holsave" type="button">저장하고 불러오기</button><button id="holclr" type="button">인증키 지우기</button></div>
-      <p class="hint" id="holmsg">인증키가 없거나 인터넷이 끊겨도 내장 공휴일 달력으로 그대로 계산돼요.</p>
       <h3>백업 코드 (데이터가 지워질 때나 기기를 바꿀 때 대비)</h3><textarea id="bk" rows="3" spellcheck="false"></textarea><div class="seg" style="--c:2"><button id="bkc" type="button">복사</button><button id="bkr" type="button">붙여넣은 코드로 복원</button></div>
     </details>
     <div class="seg" style="--c:2;margin:16px 0 0"><button id="done" type="button" class="pri">저장하고 시작하기</button><button id="wipe" type="button">내 데이터 모두 지우기</button></div>
@@ -318,88 +310,6 @@ function hols(y){
   return (HC[y] = mp);
 }
 
-/* ── 공휴일 자동 불러오기: 공공데이터포털 · 한국천문연구원 특일 정보(getRestDeInfo) ──
-   실패(인터넷 끊김·시간 초과·인증키 오류·브라우저 보안 차단 등)하면 조용히 '오프라인 모드'로 바꾸고 내장 달력으로 계속 계산해요. */
-var HOL_API = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo";
-var HOL_KEY_DEFAULT = "f8c346dc30d2cae170ebd26282c9be823f70a9e8b0528a9668f9ff7edfe2435c";   // 공공데이터포털 일반 인증키 (설정 화면에서 따로 넣은 키가 있으면 그것을 우선 사용)
-var HOL_TIMEOUT = 6000, HOL_FRESH = 7 * 864e5;
-var HAPI = {}, HTRY = {}, HBUSY = {}, holMode = "builtin", holWhy = "";
-function holKey(){ var k = ""; try { k = localStorage.getItem("kd-holkey") || ""; } catch (e) {} return String(k || HOL_KEY_DEFAULT || "").trim(); }
-function holNorm(k){ try { k = decodeURIComponent(k); } catch (e) {} return encodeURIComponent(k); }
-function holShort(n){
-  n = String(n || "").replace(/\s+/g, " ").trim();
-  if (n === "1월1일") return "신정";
-  if (n === "기독탄신일") return "성탄절";
-  if (n.indexOf("대체") === 0) return "대체휴일";
-  if (n.indexOf("선거") >= 0) return "선거일";
-  return n;
-}
-function holParse(j){
-  if (typeof j === "string") j = JSON.parse(j);
-  var r = j && j.response; if (!r) throw new Error("응답 형식이 달라요");
-  var hd = r.header || {}; if (hd.resultCode !== undefined && String(hd.resultCode) !== "00") throw new Error(hd.resultMsg || ("API 오류 " + hd.resultCode));
-  var it = r.body && r.body.items; it = it && it.item; var out = {};
-  if (!it) return out;
-  (Array.isArray(it) ? it : [it]).forEach(function(x){
-    var s = x && String(x.locdate || ""); if (!/^\d{8}$/.test(s) || String(x.isHoliday) === "N") return;
-    out[s.slice(0, 4) + "-" + s.slice(4, 6) + "-" + s.slice(6)] = holShort(x.dateName);
-  });
-  return out;
-}
-// 그 달의 공휴일: API(또는 저장본)가 있으면 그 달은 API 기준, 없으면 내장 달력. 노동절은 특일 API의 공휴일 목록에 없어서 내장값을 유지.
-function holsFor(y, m){
-  var base = hols(y), ym = y + "-" + pad(m + 1), a = HAPI[ym];
-  if (!a) return base;
-  var out = {}, k;
-  for (k in base) { if (k.slice(0, 7) !== ym || base[k] === "노동절") out[k] = base[k]; }
-  for (k in a.items) out[k] = a.items[k];
-  return out;
-}
-function holStatus(){
-  var el = $("holst"); if (!el) return;
-  var a = HAPI[ymk()], t, cls = "holst";
-  if (holMode === "offline") { t = "오프라인 모드 · " + (a ? "저장된 공휴일 정보 사용 중" : "내장 공휴일 사용 중"); cls += " off"; }
-  else if (a && a.src === "api") { t = "공휴일: 공공데이터포털 연동됨"; cls += " api"; }
-  else if (a) { t = "공휴일: 저장된 공공데이터 정보 사용 중"; cls += " api"; }
-  else if (!holKey()) t = "공휴일: 내장 달력 사용 중 (설정에서 인증키를 넣으면 자동 연동)";
-  else t = "공휴일: 내장 달력 사용 중";
-  el.className = cls; el.textContent = t;
-}
-function loadHolidays(y, m, force){
-  var ym = y + "-" + pad(m + 1), c = null;
-  try { c = JSON.parse(localStorage.getItem("kd-hol-" + ym)); } catch (e) {}
-  if (c && c.items && !HAPI[ym]) HAPI[ym] = { src: "cache", items: c.items };
-  var key = holKey();
-  if (!key) { holMode = "builtin"; return Promise.resolve("nokey"); }
-  var fresh = c && c.t && (Date.now() - c.t) < HOL_FRESH;
-  if (!force && (fresh || HBUSY[ym] || (HTRY[ym] && Date.now() - HTRY[ym] < 60000))) return Promise.resolve("skip");
-  if (typeof navigator !== "undefined" && navigator.onLine === false) { holMode = "offline"; holWhy = "인터넷 연결 없음"; return Promise.resolve("offline"); }
-  if (typeof fetch !== "function") { holMode = "offline"; holWhy = "이 브라우저는 지원하지 않아요"; return Promise.resolve("offline"); }
-  HBUSY[ym] = true; HTRY[ym] = Date.now();
-  var ctl = (typeof AbortController === "function") ? new AbortController() : null;
-  var timer = ctl ? setTimeout(function(){ try { ctl.abort(); } catch (e) {} }, HOL_TIMEOUT) : null;
-  var url = HOL_API + "?serviceKey=" + holNorm(key) + "&solYear=" + y + "&solMonth=" + pad(m + 1) + "&numOfRows=50&_type=json";
-  return new Promise(function(res){
-    var p; try { p = fetch(url, { cache: "no-store", signal: ctl ? ctl.signal : undefined }); } catch (e) { p = Promise.reject(e); }
-    p.then(function(r){
-        if (!r.ok) throw new Error("서버 응답 " + r.status);
-        return r.json().catch(function(){ throw new Error("JSON이 아닌 응답이에요 (인증키 등록·승인 상태를 확인해 주세요)"); });
-     })
-     .then(function(json){
-        var items = holParse(json);
-        HAPI[ym] = { src: "api", items: items };
-        try { localStorage.setItem("kd-hol-" + ym, JSON.stringify({ t: Date.now(), items: items })); } catch (e) {}
-        holMode = "api"; holWhy = ""; res("ok");
-     })
-     .catch(function(e){
-        holMode = "offline"; holWhy = (e && e.name === "AbortError") ? "응답이 너무 늦어요" : ((e && e.message) || "연결 실패");
-        try { console.warn("공휴일 API 실패 → 오프라인 모드:", holWhy); } catch (x) {}
-        res("fail");
-     })
-     .then(function(){ if (timer) clearTimeout(timer); HBUSY[ym] = false; try { if (ym === ymk()) render(); else holStatus(); } catch (e) {} });
-  });
-}
-
 /* 계산 */
 function num(v){ var x = parseFloat(v); return isFinite(x) ? x : 0; }
 function c(k){ return num(S.cfg[k]); }
@@ -421,7 +331,7 @@ function line(name, f, amt, neg){
 }
 
 function calc(){
-  var k = ymk(), sc = S.sched[k] || {}, ex = getEx(), h = holsFor(Y, M), nd = new Date(Y, M + 1, 0).getDate();
+  var k = ymk(), sc = S.sched[k] || {}, ex = getEx(), h = hols(Y), nd = new Date(Y, M + 1, 0).getDate();
   var m = 0, a = 0, hm = 0, ha = 0, phm = 0, pha = 0, ph = 0, actualWeeklyHolidays = 0, nR = 0, nP = 0, nH = 0;
   var wh = whInfo(), wdHol = wh.dow;
   for (var d = 1; d <= nd; d++) {
@@ -512,8 +422,8 @@ function syncNav(){
   ms.value = M + 1;
 }
 function render(){
-  $("ttl").textContent = Y + "년 " + (M + 1) + "월"; $("warn").hidden = storeOK; syncNav(); loadHolidays(Y, M); holStatus();
-  var sc = S.sched[ymk()] || {}, h = holsFor(Y, M), first = new Date(Y, M, 1).getDay(), nd = new Date(Y, M + 1, 0).getDate();
+  $("ttl").textContent = Y + "년 " + (M + 1) + "월"; $("warn").hidden = storeOK; syncNav();
+  var sc = S.sched[ymk()] || {}, h = hols(Y), first = new Date(Y, M, 1).getDay(), nd = new Date(Y, M + 1, 0).getDate();
   var html = ["일","월","화","수","목","금","토"].map(function(x){ return '<div class="dh">' + x + '</div>'; }).join("");
   for (var i = 0; i < first; i++) html += '<div class="d e"></div>';
   for (var d = 1; d <= nd; d++) {
@@ -587,27 +497,6 @@ document.addEventListener("input", function(e){
   if (k === "mstep") { getEx().rate = ""; save(); render(); return; }
   save(); calc();
 });
-$("holsave").onclick = function(){
-  var v = $("holkey").value.trim(), msg = $("holmsg");
-  if (!v && !holKey()) { msg.textContent = "인증키를 붙여넣어 주세요."; return; }
-  if (v) { try { localStorage.setItem("kd-holkey", v); } catch (e) { msg.textContent = "이 브라우저는 인증키 저장이 막혀 있어요."; return; } $("holkey").value = ""; }
-  msg.textContent = "불러오는 중...";
-  loadHolidays(Y, M, true).then(function(r){
-    var a = HAPI[ymk()];
-    msg.textContent = (r === "ok" && a) ? "연동 성공! 이 달 공휴일 " + Object.keys(a.items).length + "일을 가져왔어요." : "연동하지 못했어요 (" + (holWhy || "인증키와 인터넷을 확인해 주세요") + "). 오프라인 모드로 내장 달력을 쓰고 있어요.";
-    $("holkey").placeholder = holKey() ? "저장됨 (앞 4자리 " + holKey().slice(0, 4) + "…)" : "일반 인증키 붙여넣기";
-    render();
-  });
-};
-$("holclr").onclick = function(){
-  try { localStorage.removeItem("kd-holkey"); Object.keys(localStorage).forEach(function(k){ if (k.indexOf("kd-hol-") === 0) localStorage.removeItem(k); }); } catch (e) {}
-  HAPI = {}; HTRY = {}; holMode = "builtin"; holWhy = "";
-  $("holkey").placeholder = "일반 인증키 붙여넣기"; $("holmsg").textContent = "인증키를 지웠어요. 내장 공휴일 달력으로 계산해요.";
-  render();
-};
-$("holkey").placeholder = holKey() ? "저장됨 (앞 4자리 " + holKey().slice(0, 4) + "…)" : "일반 인증키 붙여넣기";
-window.addEventListener("online", function(){ if (holKey()) { holMode = "builtin"; loadHolidays(Y, M, true); } });
-window.addEventListener("offline", function(){ if (holKey()) { holMode = "offline"; holWhy = "인터넷 연결 없음"; holStatus(); } });
 render();
 </script>
 </body>
